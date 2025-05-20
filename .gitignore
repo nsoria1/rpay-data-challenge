@@ -172,3 +172,12 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# MacOs file
+.DS_Store
+
+# Minio data
+minio-data/
+
+# Spark
+spark-jars/

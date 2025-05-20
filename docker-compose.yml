@@ -1,0 +1,111 @@
+services:
+  spark-submit:
+    image: apache/spark:3.5.3
+    container_name: spark-submit
+    user: "0:0"
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
+    environment:
+      - AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT=true
+    ports:
+      - "4040:4040" # Spark UI for local mode
+    volumes:
+      - ./src:/opt/spark-apps
+      - ./data:/opt/spark-data
+      - ./logs:/opt/spark-logs
+      - ivy-cache:/home/spark/.ivy2
+      - s3a-temp:/tmp/s3a-temp
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    command: >
+      /bin/bash -c "
+        mkdir -p /tmp/s3a-temp && 
+        chmod 777 /tmp/s3a-temp &&
+        chown -R 185:185 /home/spark/.ivy2 && 
+        chmod +x /opt/spark-apps/main.py && 
+        /opt/spark/bin/spark-submit --driver-memory 2g --packages io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.771 /opt/spark-apps/main.py"
+    networks:
+      - spark-network
+
+  python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: python
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./requirements.txt:/app/requirements.txt
+    depends_on:
+      - spark-submit
+    command: >
+      /bin/bash -c "
+        pip install -r /app/requirements.txt &&
+        pytest /app/tests
+      "
+    networks:
+      - spark-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000" # MinIO API
+      - "9001:9001" # MinIO Console
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    volumes:
+      - ./minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - spark-network
+
+  minio-setup:
+    container_name: minio-setup
+    image: minio/mc:latest
+    volumes:
+      - ./data:/data
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for MinIO...' &&
+        for i in {1..30}; do mc alias set myminio http://minio:9000 admin password && break || sleep 2; done &&
+        [ $$i -eq 30 ] && echo 'Failed to connect to MinIO after 60 seconds' && exit 1 || true &&
+        (mc ls myminio/input >/dev/null 2>&1 || mc mb myminio/input) &&
+        (mc ls myminio/output >/dev/null 2>&1 || mc mb myminio/output) &&
+        if ls /data/input/* >/dev/null 2>&1; then mc cp /data/input/* myminio/input/cdc/ && echo 'Uploaded Parquet files to s3://input/cdc/'; else echo 'No Parquet files found in /data/input/'; fi
+      "
+    networks:
+      - spark-network
+  
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter
+    ports:
+      - "8888:8888"  # Jupyter Notebook port
+    volumes:
+      - ./notebooks:/home/jovyan/work  # Map a local directory for notebooks
+    depends_on:
+      - minio
+    command: >
+      start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    networks:
+      - spark-network
+
+networks:
+  spark-network:
+    driver: bridge
+
+volumes:
+  minio-data:
+  data:
+  logs:
+  ivy-cache:
+  s3a-temp:
