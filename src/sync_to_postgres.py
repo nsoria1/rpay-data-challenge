@@ -1,5 +1,6 @@
 import logging
 from pyspark.sql import SparkSession
+import os
 
 # Set up logging
 logging.basicConfig(filename='/opt/spark-logs/pipeline.log', level=logging.INFO, 
@@ -12,11 +13,14 @@ def sync_to_postgres(spark: SparkSession):
         transactions_df = spark.read.format("delta").load("s3a://output/transactions")
         wallet_history_df = spark.read.format("delta").load("s3a://output/wallet_history")
 
-        # PostgreSQL connection properties
-        jdbc_url = "jdbc:postgresql://postgres:5432/cdi_bonus"
+        # Read PostgreSQL credentials from environment variables
+        postgres_user = os.getenv("POSTGRES_USER", "admin")
+        postgres_password = os.getenv("POSTGRES_PASSWORD", "password")
+        jdbc_url = os.getenv("POSTGRES_JDBC_URL", "jdbc:postgresql://postgres:5432/cdi_bonus")
+
         connection_properties = {
-            "user": "admin",
-            "password": "password",
+            "user": postgres_user,
+            "password": postgres_password,
             "driver": "org.postgresql.Driver"
         }
 

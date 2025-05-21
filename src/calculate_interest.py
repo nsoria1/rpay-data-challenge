@@ -46,46 +46,59 @@ def calculate_interest(spark: SparkSession, history_df, cdc_df, default_rate: fl
         DataFrame with interest transactions
     """
     logging.info("Calculating interest")
-    
+
+    # Load daily rates from MinIO, or fall back to default rate if unavailable
     rates_df = load_daily_rates(spark, rates_path, default_rate)
-    
+
+    # Identify days with withdrawals or transfers out from CDC data
     movement_df = cdc_df.filter(col("transaction_type").isin("WITHDRAWAL", "TRANSFER_OUT")) \
                        .groupBy("user_id", "event_date") \
                        .agg({"*": "count"}) \
                        .withColumnRenamed("event_date", "date") \
                        .withColumnRenamed("count(1)", "has_movement")
-    
+
+    # Join wallet history with movement data to flag days with movement
     history_with_movement = history_df.join(movement_df, ["user_id", "date"], "left") \
                                      .withColumn("has_movement", col("has_movement").isNotNull())
-    
+
+    # Define a window to check previous day's movement for each user
     window_spec = Window.partitionBy("user_id").orderBy("date")
+    
+    # Add column for previous day's movement and flag if balance is unmoved (no movement on previous day)
     history_with_movement = history_with_movement.withColumn("prev_movement", lag("has_movement").over(window_spec)) \
                                                 .withColumn("is_unmoved", 
                                                             when(col("prev_movement").isNull(), True) \
                                                             .when(col("prev_movement") == False, True) \
                                                             .otherwise(False))
-    
+
+    # Filter for balances > $100 that haven't moved for 24 hours
     qualifying_df = history_with_movement.filter((col("balance") > 100) & (col("is_unmoved") == True))
-    
+
+    # Apply daily rates if available, otherwise use default rate
     if rates_df is not None:
         qualifying_df = qualifying_df.join(rates_df, ["date"], "left") \
                                     .withColumn("daily_rate", col("rate").cast("double").fillna(default_rate))
     else:
         qualifying_df = qualifying_df.withColumn("daily_rate", col("balance") * 0 + default_rate)
-    
+
+    # Calculate interest (balance * daily rate) for qualifying balances
     interest_df = qualifying_df.select(
         col("user_id"),
         col("date"),
         (col("balance") * col("daily_rate")).alias("interest_amount")
     )
-    
+
+    # Extract CDC transactions with relevant columns
     cdc_transactions = cdc_df.select(
         col("user_id"),
         col("event_date").alias("date"),
         col("amount").alias("interest_amount")
     )
-    transactions_df = cdc_transactions.unionByName(interest_df)
     
+    # Combine CDC transactions with interest transactions
+    transactions_df = cdc_transactions.unionByName(interest_df)
+
+    # Save the combined transactions as a Delta table, partitioned by date
     try:
         transactions_df.write.format("delta").mode("overwrite").partitionBy("date").save(output_path)
         transaction_count = transactions_df.count()
@@ -94,5 +107,5 @@ def calculate_interest(spark: SparkSession, history_df, cdc_df, default_rate: fl
     except Exception as e:
         logging.error(f"Failed to write transactions: {str(e)}")
         raise
-    
+
     return transactions_df

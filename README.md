@@ -151,8 +151,3 @@ Open `exploratory_analysis/` in Jupyter or VS Code.
 
 ## Trade-offs
 See `TRADEOFFS.md` for compromises due to time constraints, including monitoring, error handling, and security.
-
-## Future Improvements
-- Add comprehensive tests for interest calculations.
-- Integrate with a production transactional database.
-- Implement real-time monitoring and alerts.
