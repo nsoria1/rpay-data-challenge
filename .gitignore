@@ -181,3 +181,4 @@ minio-data/
 
 # Spark
 spark-jars/
+ivy-cache/

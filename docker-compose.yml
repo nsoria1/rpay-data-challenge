@@ -6,10 +6,12 @@ services:
     depends_on:
       minio-setup:
         condition: service_completed_successfully
+      postgres:
+        condition: service_started
     environment:
       - AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT=true
     ports:
-      - "4040:4040" # Spark UI for local mode
+      - "4040:4040"
     volumes:
       - ./src:/opt/spark-apps
       - ./data:/opt/spark-data
@@ -26,7 +28,7 @@ services:
         chmod 777 /tmp/s3a-temp &&
         chown -R 185:185 /home/spark/.ivy2 && 
         chmod +x /opt/spark-apps/main.py && 
-        /opt/spark/bin/spark-submit --driver-memory 2g --packages io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.771 /opt/spark-apps/main.py"
+        /opt/spark/bin/spark-submit --driver-memory 2g --packages io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.771,org.postgresql:postgresql:42.7.4 /opt/spark-apps/main.py"
     networks:
       - spark-network
 
@@ -44,10 +46,9 @@ services:
     depends_on:
       - spark-submit
     command: >
-      /bin/bash -c "
-        pip install -r /app/requirements.txt &&
-        pytest /app/tests
-      "
+      /bin/bash -c "\
+        pip install -r /app/requirements.txt && \
+        PYTHONPATH=/app/src pytest /app/tests"
     networks:
       - spark-network
 
@@ -55,8 +56,8 @@ services:
     image: minio/minio:latest
     container_name: minio
     ports:
-      - "9000:9000" # MinIO API
-      - "9001:9001" # MinIO Console
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=password
@@ -84,18 +85,16 @@ services:
       "
     networks:
       - spark-network
-  
-  jupyter:
-    image: jupyter/pyspark-notebook:latest
-    container_name: jupyter
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=cdi_bonus
     ports:
-      - "8888:8888"  # Jupyter Notebook port
-    volumes:
-      - ./notebooks:/home/jovyan/work  # Map a local directory for notebooks
-    depends_on:
-      - minio
-    command: >
-      start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+      - "5432:5432"
     networks:
       - spark-network
 

@@ -4,6 +4,7 @@ import os
 from ingest_cdc import ingest_cdc
 from build_history import build_wallet_history
 from calculate_interest import calculate_interest
+from sync_to_postgres import sync_to_postgres
 
 # Set up logging
 logging.basicConfig(filename='/opt/spark-logs/pipeline.log', level=logging.INFO, 
@@ -35,19 +36,19 @@ def main():
         .config("spark.sql.shuffle.partitions", "50") \
         .getOrCreate()
 
-    # Reduce log level to minimize output in spark service
+    # Reduce log level
     spark.sparkContext.setLogLevel("WARN")
 
     try:
         # Define paths and default rate
-        default_rate = 0.001  # 0.1% daily rate
+        default_rate = 0.001
         rates_path = "s3a://input/rates/"
         
         # Step 1: Ingest CDC data
         cdc_df = ingest_cdc(spark, "s3a://input/cdc/")
         
-        # Step 2: Build wallet history - add repartitioning to reduce file size
-        cdc_df = cdc_df.repartition(10)  # Adjust number based on your data size
+        # Step 2: Build wallet history
+        cdc_df = cdc_df.repartition(10)
         history_df = build_wallet_history(spark, cdc_df, "s3a://output/wallet_history")
         
         # Step 3: Calculate interest
@@ -56,7 +57,9 @@ def main():
                                        rates_path=rates_path,
                                        output_path="s3a://output/transactions")
         
-        # Log summary
+        # Step 4: Sync to PostgreSQL
+        sync_to_postgres(spark)
+        
         logging.info("Pipeline completed successfully")
 
     except Exception as e:
