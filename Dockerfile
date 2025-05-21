@@ -17,10 +17,4 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-# Remove copying of project files since they are mounted via volumes
-# COPY src/ ./src/
-# COPY tests/ ./tests/
-# COPY data/ ./data/
-# COPY logs/ ./logs/
-
 CMD ["/bin/bash"]
