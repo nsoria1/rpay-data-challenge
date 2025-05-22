@@ -19,6 +19,6 @@ The CDI Bonus pipeline generates:
 
 ### How It Works
 - **Identify Changes**: Use Delta table versioning to find new or updated records since the last export.
-- **Extract Changes**: Run a Spark job to read these changes (If using Delta ne Production we can do `deltaTable.history()` to track changes).
+- **Extract Changes**: Run a Spark job to read these changes (If using Delta in Production we can do `deltaTable.history()` to track changes).
 - **Write to Database**: Write the changes to the production database using JDBC.
 - **Frequency**: Scheduled.
