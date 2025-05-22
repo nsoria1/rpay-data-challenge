@@ -5,7 +5,7 @@ Due to time constraints and the need for a functional prototype, the following t
 1. **Visibility and Monitoring**:
    - **Current State**: Basic logging to `./logs/pipeline.log` without real-time alerts or detailed metrics (e.g., invalid CDC records, failed transactions).
    - **Future Plan**: Integrate Prometheus for metrics (e.g., transaction counts, errors) and configure email/Slack alerts for pipeline failures.
-   - **Reason**: Simplified debugging for development; production requires robust monitoring for mission-critical reliability.
+   - **Reason**: Simplified debugging for development; production requires robust monitoring for reliability.
 
 2. **Error Handling for Source Data**:
    - **Current State**: Filters null values in `ingest_cdc.py` but lacks validation for malformed data (e.g., negative amounts, invalid transaction types).
@@ -14,7 +14,7 @@ Due to time constraints and the need for a functional prototype, the following t
 
 3. **Production Database Integration**:
    - **Current State**: Uses PostgreSQL as a temporary queryable copy of Delta tables, not integrated with a production transactional database.
-   - **Future Plan**: Recommend Amazon RDS PostgreSQL or Aurora for ACID compliance and scalability. Use Debezium for CDC to sync interest transactions.
+   - **Future Plan**: We should evaluate the best database for us as producers and define requirements from whoever will consume the data downstream.
    - **Reason**: Simplified local setup; production requires a high-availability database.
 
 4. **Performance Optimization**:
@@ -23,8 +23,8 @@ Due to time constraints and the need for a functional prototype, the following t
    - **Reason**: Prioritized functional pipeline; production needs performance tuning.
 
 5. **Security**:
-   - **Current State**: Hardcoded credentials (`admin:password`) in `docker-compose.yml` and `sync_to_postgres.py`.
-   - **Future Plan**: Use AWS Secrets Manager or environment variables for secure credential management.
+   - **Current State**: Hardcoded credentials (`admin:password`) in `docker-compose.yml`.
+   - **Future Plan**: Use secrets vault for secure credential management.
    - **Reason**: Simplified development setup; production requires secure practices.
 
 6. **Daily Scheduling**:

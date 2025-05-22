@@ -1,6 +1,6 @@
 # CDI Bonus Pipeline: Functional Documentation
 
-This document explains the business logic of the CDI Bonus pipeline, which calculates daily interest for user wallet balances. It covers three key components: ingesting data, building wallet history, and calculating interest. This is designed for functional stakeholders to understand the process without technical details.
+This document explains the business logic of the CDI Bonus pipeline, which calculates daily interest for user wallet balances. It covers three key components: ingesting data, building wallet history, and calculating interest.
 
 ## Overview
 The pipeline processes wallet transaction data to:

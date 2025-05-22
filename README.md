@@ -147,7 +147,7 @@ Open `exploratory_analysis/` in Jupyter or VS Code.
   - Documentation: Pipeline logic, setup, and queries detailed above; trade-offs in `TRADEOFFS.md`.
 - **Technical**:
   - Spark: Used for all data processing and Delta table writes.
-  - Testing: Basic test in `tests/test_interest.py` verifies interest calculation.
+  - Testing: Basic test in `tests/test_interest.py` verifies interest calculation, plus other unit tests as well.
 
 ## Trade-offs
 See `TRADEOFFS.md` for compromises due to time constraints, including monitoring, error handling, and security.
